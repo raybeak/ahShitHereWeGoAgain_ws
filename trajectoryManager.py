@@ -1,6 +1,6 @@
 """
 from coreNodeRos2.py :
-    - get  csv file location and max accel, decel, speed and min speed
+    - get csv file location and max accel, decel, speed and min speed
     - might need to get its current position from odom in order to get the close waypoint from vehicle
 to coreNodeRos2.py :
     - gives full list of waypoints when first called
@@ -31,7 +31,6 @@ class trajectoryManager:
         self.maxDecel = vehicleParams.max_decel
         self.maxSpeed = vehicleParams.max_speed
         self.minSpeed = vehicleParams.min_speed
-        self.maxLatAccel = self.maxAccele * (self.minSpeed / self.maxSpeed)
         self.trajectory = []
         self.current_index = 0
         
@@ -119,11 +118,14 @@ class trajectoryManager:
             curr_wp.curvature = np.clip((4*area)/(side_a*side_b*side_c), 0.0, 10.0) if (side_a*side_b*side_c)>1e-9 else 0.0
 
     def _compute_speed_profile(self) -> None:
+
+        #self.maxLatAccel = self.maxAccele * (self.minSpeed / self.maxSpeed)
+        
         N = len(self.waypoints)
         if N <= 3:   return
 
         #compute speed profile based on curvature and max speed, max accel and max decel
-        for i in range(N-1):
+        for i in range(N):
             curr_wp = self.waypoints[i]
             
             #compute speed based on curvature
@@ -133,17 +135,39 @@ class trajectoryManager:
             else:
                 curr_wp.speed = 1.0
 
+        total_passes = 3 if self.is_closed == True else total_passes = 1
+    #for p in range(total_passes):
         #forward pass to ensure acceleration limits are respected
-        for i in range(N-2, -1, -1):
-            curr_wp = self.waypoints[i]
-            next_wp = self.waypoints[i+1]
-            curr_wp.speed *= self.maxSpeed
+        for p in range(total_passes):
+            for i in range(N-1):
+                curr_idx = i
+                next_idx = (i+1)%N if self.is_closed is True else i+1
+
+                if self.is_closed is False and next_idx == N:
+                    break
+
+                curr_wp = self.waypoints[curr_idx]
+                next_wp = self.waypoints[next_idx]
+                ds = self.segment_length[curr_idx]
+
+                max_reachable_speed = math.sqrt((curr_wp.speed**2)+2*self.maxAccele*ds)
+                next_wp.speed = min(next_wp.speed, max_reachable_speed)
 
         #backward pass to ensure deceleration limits are respected
-        for i in range(N-2, -1, -1):
-            curr_wp = self.waypoints[i]
-            next_wp = self.waypoints[i+1]
-            segment_length = self.segment_lengths[i]
-            max_speed_next = next_wp.speed
-            max_speed_curr = math.sqrt(max_speed_next**2 + 2*self.maxDecel*segment_length)
-            curr_wp.speed = min(curr_wp.speed, max_speed_curr)
+        for p in range(total_passes):
+            temp_idx = N-1 if self.is_closed is True else N-2
+
+            for i in range(temp_idx):
+
+                curr_idx=i
+                next_idx=(i+1)%N
+                curr_wp = self.waypoints[curr_idx]
+                next_wp = self.waypoints[next_idx]
+
+                ds = self.segment_lengths[curr_idx]
+
+                max_decal_speed = math.sqrt((next_wp.speed**2) + 2*self.maxDecel*ds)
+                curr_wp.speed = min(curr_wp.speed, max_decal_speed)
+        for i in range(N-1):
+            curr_wp = waypoint[i]
+            curr_wp.speed = np.clip(curr_wp.speed/self.maxSpeed,0.3,1.0)
