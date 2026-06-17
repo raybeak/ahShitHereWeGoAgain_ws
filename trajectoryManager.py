@@ -11,11 +11,8 @@ to coreNodeRos2.py :
 import os
 import csv
 import math
-import numpy as np
 from dataclasses import dataclass
 from statistics import median
-
-file_path = './wp_amcl-2026-06-11-09-12-07-clean_copy.csv'
 
 @dataclass
 #waypoint class to store the x, y, theta, speed and heading of each waypoint
@@ -116,7 +113,7 @@ class trajectoryManager:
             area=area2/2.0
 
 
-            curr_wp.curvature = np.clip((4*area)/(side_a*side_b*side_c), 0.0, 10.0) if (side_a*side_b*side_c)>1e-9 else 0.0
+            curr_wp.curvature = max(0.0,min((4*area)/(side_a*side_b*side_c), 10.0)) if (side_a*side_b*side_c)>1e-9 else 0.0
 
     def _compute_speed_profile(self) -> None:
 
@@ -131,7 +128,7 @@ class trajectoryManager:
             
             #compute speed based on curvature
             if curr_wp.curvature > 1e-5:
-                curr_wp.speed = np.clip(math.sqrt(self.maxAccele/curr_wp.curvature), self.minSpeed,self.maxSpeed)
+                curr_wp.speed = max(self.minSpeed,min(math.sqrt(self.maxAccele/curr_wp.curvature),self.maxSpeed))
             else:
                 curr_wp.speed = self.maxSpeed
 
@@ -184,4 +181,37 @@ class trajectoryManager:
 
         for i in range(N):
             curr_wp = self.waypoints[i]
-            curr_wp.speed = np.clip(curr_wp.speed/self.maxSpeed,0.3,1.0)
+            curr_wp.speed = max(0.3,min(curr_wp.speed/self.maxSpeed, 1.0))
+
+"""# simple test run when executed directly
+file_path = './wp_amcl-2026-06-11-09-12-07-clean_copy.csv'
+
+if __name__ == '__main__':
+    class _VP:
+        max_accel = 1.0
+        max_decel = 1.0
+        max_speed = 1.0
+        min_speed = 0.3
+
+    tm = trajectoryManager(_VP())
+    tm.load_csv(file_path)
+    tm._compute_geometry()
+    tm._compute_speed_profile()
+
+    for i in range(min(10, len(tm.waypoints))):
+        wp = tm.waypoints[i]
+        print(wp.x, wp.y, wp.theta, wp.speed, wp.curvature)
+
+    print(len(tm.waypoints))
+    print(tm.is_closed)
+    print(min(w.speed for w in tm.waypoints))
+    print(max(w.speed for w in tm.waypoints))
+    start = tm.waypoints[0]
+    end = tm.waypoints[-1]
+
+    print(
+        math.hypot(
+            start.x - end.x,
+            start.y - end.y
+        )
+    )"""
