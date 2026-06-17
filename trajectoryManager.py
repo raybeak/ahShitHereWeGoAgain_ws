@@ -15,6 +15,7 @@ import numpy as np
 from dataclasses import dataclass
 from statistics import median
 
+file_path = './wp_amcl-2026-06-11-09-12-07-clean_copy.csv'
 
 @dataclass
 #waypoint class to store the x, y, theta, speed and heading of each waypoint
@@ -28,7 +29,7 @@ class waypoint:
 class trajectoryManager:
     def __init__(self,vehicleParams):
         self.maxAccele = vehicleParams.max_accel
-        self.maxDecel = vehicleParams.max_decel
+        self.maxDecel = abs(vehicleParams.max_decel)
         self.maxSpeed = vehicleParams.max_speed
         self.minSpeed = vehicleParams.min_speed
         self.trajectory = []
@@ -154,20 +155,33 @@ class trajectoryManager:
 
         #backward pass to ensure deceleration limits are respected
         for p in range(total_passes):
-            temp_idx = N-1 if self.is_closed is True else N-2
+            if self.is_closed:
 
-            for i in range(temp_idx):#<-- fix needed
+                for i in range(N-1,-1,-1):
 
-                curr_idx=i
-                next_idx=(i+1)%N
-                curr_wp = self.waypoints[curr_idx]
-                next_wp = self.waypoints[next_idx]
+                    curr_idx=i
+                    next_idx=(i+1)%N
+                    curr_wp = self.waypoints[curr_idx]
+                    next_wp = self.waypoints[next_idx]
 
-                ds = self.segment_lengths[curr_idx]
+                    ds = self.segment_lengths[curr_idx]
 
-                max_decal_speed = math.sqrt((next_wp.speed**2) + 2*self.maxDecel*ds)
-                curr_wp.speed = min(curr_wp.speed, max_decal_speed)
+                    max_decal_speed = math.sqrt((next_wp.speed**2) + 2*self.maxDecel*ds)
+                    curr_wp.speed = min(curr_wp.speed, max_decal_speed)
+            else:
+                for i in range(N-2,-1,-1):
+                    curr_idx=i
+                    next_idx=(i+1)
 
-        for i in range(N-1):
+                    curr_wp = self.waypoints[curr_idx]
+                    next_wp = self.waypoints[next_idx]
+
+                    ds = self.segment_lengths[curr_idx]
+
+                    max_decal_speed = math.sqrt((next_wp.speed**2) + 2*self.maxDecel*ds)
+                    curr_wp.speed = min(curr_wp.speed, max_decal_speed)
+
+
+        for i in range(N):
             curr_wp = self.waypoints[i]
             curr_wp.speed = np.clip(curr_wp.speed/self.maxSpeed,0.3,1.0)
