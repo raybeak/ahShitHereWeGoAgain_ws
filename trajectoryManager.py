@@ -130,12 +130,11 @@ class trajectoryManager:
             
             #compute speed based on curvature
             if curr_wp.curvature > 1e-5:
-                curr_wp.speed = math.sqrt(self.maxAccele/curr_wp.curvature)
-                curr_wp.speed = np.clip(curr_wp.speed, self.minSpeed/self.maxSpeed, 1.0)
+                curr_wp.speed = np.clip(math.sqrt(self.maxAccele/curr_wp.curvature), self.minSpeed,self.maxSpeed)
             else:
-                curr_wp.speed = 1.0
+                curr_wp.speed = self.maxSpeed
 
-        total_passes = 3 if self.is_closed == True else total_passes = 1
+        total_passes = 3 if self.is_closed == True else 1
     #for p in range(total_passes):
         #forward pass to ensure acceleration limits are respected
         for p in range(total_passes):
@@ -148,7 +147,7 @@ class trajectoryManager:
 
                 curr_wp = self.waypoints[curr_idx]
                 next_wp = self.waypoints[next_idx]
-                ds = self.segment_length[curr_idx]
+                ds = self.segment_lengths[curr_idx]
 
                 max_reachable_speed = math.sqrt((curr_wp.speed**2)+2*self.maxAccele*ds)
                 next_wp.speed = min(next_wp.speed, max_reachable_speed)
@@ -157,7 +156,7 @@ class trajectoryManager:
         for p in range(total_passes):
             temp_idx = N-1 if self.is_closed is True else N-2
 
-            for i in range(temp_idx):
+            for i in range(temp_idx):#<-- fix needed
 
                 curr_idx=i
                 next_idx=(i+1)%N
@@ -168,6 +167,7 @@ class trajectoryManager:
 
                 max_decal_speed = math.sqrt((next_wp.speed**2) + 2*self.maxDecel*ds)
                 curr_wp.speed = min(curr_wp.speed, max_decal_speed)
+
         for i in range(N-1):
-            curr_wp = waypoint[i]
+            curr_wp = self.waypoints[i]
             curr_wp.speed = np.clip(curr_wp.speed/self.maxSpeed,0.3,1.0)
