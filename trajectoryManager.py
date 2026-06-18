@@ -25,6 +25,7 @@ class waypoint:
 
 class trajectoryManager:
     def __init__(self,vehicleParams):
+        
         self.maxAccele = vehicleParams.max_accel
         self.maxDecel = abs(vehicleParams.max_decel)
         self.maxSpeed = vehicleParams.max_speed
@@ -35,6 +36,12 @@ class trajectoryManager:
         self.waypoints: list[waypoint] = []
         self.is_closed: bool = False
         self.segment_lengths = []
+        
+    """ 
+    def __setattr__(self, name, value):
+        if name == "maxSpeed":
+            print("SETTING maxSpeed ->", value, type(value))
+        super().__setattr__(name, value)"""
 
     def load_csv(self, file_path: str) -> bool:
         # load csv file into waypoints with float x, y, theta
@@ -52,6 +59,8 @@ class trajectoryManager:
                         wp = waypoint(x=val_x, y=val_y, theta=val_theta)
                         self.waypoints.append(wp)
 
+                        print(wp)#<---debug
+
                     except ValueError:  pass
     
                 return True
@@ -61,7 +70,7 @@ class trajectoryManager:
             return False
     
     def _compute_geometry(self) -> None:
-    
+
         N = len(self.waypoints)
         if N < 3:   return
         self.segment_lengths.clear()
@@ -72,6 +81,9 @@ class trajectoryManager:
             waypointSecond = self.waypoints[i + 1]
             length = math.sqrt((waypointSecond.x - waypointFirst.x) ** 2 + (waypointSecond.y - waypointFirst.y) ** 2)
             self.segment_lengths.append(length)
+            
+            
+            #print(length)#<--debug
         
 
         #check it is closed or not by checking the distance between the first and last waypoint, if it is less than 0.1, it is closed
@@ -113,12 +125,11 @@ class trajectoryManager:
             area=area2/2.0
 
 
-            curr_wp.curvature = max(0.0,min((4*area)/(side_a*side_b*side_c), 10.0)) if (side_a*side_b*side_c)>1e-9 else 0.0
+            curr_wp.curvature = max(0.0 , min((4*area)/(side_a*side_b*side_c), 10.0)) if (side_a*side_b*side_c)>1e-9 else 0.0
 
     def _compute_speed_profile(self) -> None:
-
-        #self.maxLatAccel = self.maxAccele * (self.minSpeed / self.maxSpeed)
         
+        print("PROFILE", id(self), self.maxSpeed, type(self.maxSpeed))
         N = len(self.waypoints)
         if N <= 3:   return
 
@@ -128,7 +139,7 @@ class trajectoryManager:
             
             #compute speed based on curvature
             if curr_wp.curvature > 1e-5:
-                curr_wp.speed = max(self.minSpeed,min(math.sqrt(self.maxAccele/curr_wp.curvature),self.maxSpeed))
+                curr_wp.speed = max(self.minSpeed , min( math.sqrt(self.maxAccele/curr_wp.curvature), self.maxSpeed))
             else:
                 curr_wp.speed = self.maxSpeed
 
@@ -183,6 +194,9 @@ class trajectoryManager:
             curr_wp = self.waypoints[i]
             curr_wp.speed = max(0.3,min(curr_wp.speed/self.maxSpeed, 1.0))
 
+    def _close_node(self):
+        #get tf/odom and find close index from maplist
+        pass
 """# simple test run when executed directly
 file_path = './wp_amcl-2026-06-11-09-12-07-clean_copy.csv'
 
