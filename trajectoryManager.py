@@ -59,7 +59,7 @@ class trajectoryManager:
                         wp = waypoint(x=val_x, y=val_y, theta=val_theta)
                         self.waypoints.append(wp)
 
-                        print(wp)#<---debug
+                        #print(wp)#<---debug
 
                     except ValueError:  pass
     
@@ -70,7 +70,7 @@ class trajectoryManager:
             return False
     
     def _compute_geometry(self) -> None:
-
+        print("starting geometry computaion")
         N = len(self.waypoints)
         if N < 3:   return
         self.segment_lengths.clear()
@@ -125,11 +125,11 @@ class trajectoryManager:
             area=area2/2.0
 
 
-            curr_wp.curvature = max(0.0 , min((4*area)/(side_a*side_b*side_c), 10.0)) if (side_a*side_b*side_c)>1e-9 else 0.0
+            curr_wp.curvature = max(0.0 , min((4*area)/(side_a*side_b*side_c), 15.0)) if (side_a*side_b*side_c)>1e-9 else 0.0
 
     def _compute_speed_profile(self) -> None:
+        print("starting speed computaion")
         
-        print("PROFILE", id(self), self.maxSpeed, type(self.maxSpeed))
         N = len(self.waypoints)
         if N <= 3:   return
 
@@ -189,43 +189,54 @@ class trajectoryManager:
                     max_decal_speed = math.sqrt((next_wp.speed**2) + 2*self.maxDecel*ds)
                     curr_wp.speed = min(curr_wp.speed, max_decal_speed)
 
+        #curvatures = [w.curvature for w in self.waypoints]
+        #print(sorted(curvatures)[:20])
+        #print(sorted(curvatures)[-20:])
+        #print(
+        #    min(w.curvature for w in self.waypoints),
+        #    max(w.curvature for w in self.waypoints))
 
+        #
         for i in range(N):
             curr_wp = self.waypoints[i]
-            curr_wp.speed = max(0.3,min(curr_wp.speed/self.maxSpeed, 1.0))
+            curr_wp.speed = max(0.05,min((curr_wp.speed/self.maxSpeed), 1.0))
+
 
     def _close_node(self):
         #get tf/odom and find close index from maplist
         pass
-"""# simple test run when executed directly
-file_path = './wp_amcl-2026-06-11-09-12-07-clean_copy.csv'
 
-if __name__ == '__main__':
-    class _VP:
-        max_accel = 1.0
-        max_decel = 1.0
-        max_speed = 1.0
-        min_speed = 0.3
 
-    tm = trajectoryManager(_VP())
-    tm.load_csv(file_path)
-    tm._compute_geometry()
-    tm._compute_speed_profile()
-
-    for i in range(min(10, len(tm.waypoints))):
-        wp = tm.waypoints[i]
-        print(wp.x, wp.y, wp.theta, wp.speed, wp.curvature)
-
-    print(len(tm.waypoints))
-    print(tm.is_closed)
-    print(min(w.speed for w in tm.waypoints))
-    print(max(w.speed for w in tm.waypoints))
-    start = tm.waypoints[0]
-    end = tm.waypoints[-1]
-
-    print(
-        math.hypot(
-            start.x - end.x,
-            start.y - end.y
-        )
-    )"""
+    
+# #simple test run when executed directly
+#file_path = './wp_amcl-2026-06-11-09-12-07-clean_copy.csv'
+#
+#if __name__ == '__main__':
+#    class _VP:
+#        max_accel = 1.0
+#        max_decel = 1.0
+#        max_speed = 1.0
+#        min_speed = 0.3
+#
+#    tm = trajectoryManager(_VP())
+#    tm.load_csv(file_path)
+#    tm._compute_geometry()
+#    tm._compute_speed_profile()
+#
+#    for i in range(min(10, len(tm.waypoints))):
+#        wp = tm.waypoints[i]
+#        print(wp.x, wp.y, wp.theta, wp.speed, wp.curvature)
+#
+#    print(len(tm.waypoints))
+#    print(tm.is_closed)
+#    print(min(w.speed for w in tm.waypoints))
+#    print(max(w.speed for w in tm.waypoints))
+#    start = tm.waypoints[0]
+#    end = tm.waypoints[-1]
+#
+#    print(
+#        math.hypot(
+#            start.x - end.x,
+#            start.y - end.y
+#        )
+#    )
