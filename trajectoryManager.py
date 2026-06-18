@@ -121,7 +121,7 @@ class trajectoryManager:
             side_b=math.sqrt((next_wp.x - curr_wp.x)**2 + (next_wp.y - curr_wp.y)**2)
             side_c=math.sqrt((next_wp.x - prev_wp.x)**2 + (next_wp.y - prev_wp.y)**2)
 
-            area2=abs((curr_wp.x - prev_wp.x)*(next_wp.y - curr_wp.y) - (curr_wp.y - prev_wp.y)*(next_wp.x - prev_wp.x))
+            area2=abs((curr_wp.x - prev_wp.x)*(next_wp.y - curr_wp.y) - (curr_wp.y - prev_wp.y)*(next_wp.x - curr_wp.x))
             area=area2/2.0
 
 
@@ -129,29 +129,39 @@ class trajectoryManager:
 
     def _compute_speed_profile(self) -> None:
         print("starting speed computaion")
-        
+
         N = len(self.waypoints)
         if N <= 3:   return
 
         #compute speed profile based on curvature and max speed, max accel and max decel
         for i in range(N):
+            prev_idx=((i-1+N)%N if self.is_closed else max(i-1,0))
+            next_idx=((i+1)%N if self.is_closed else min(N-1,i+1))
+
+            smth_curv = ((self.waypoints[prev_idx].curvature
+                          +self.waypoints[i].curvature
+                          +self.waypoints[next_idx].curvature)/3.0
+                        )
+            
             curr_wp = self.waypoints[i]
             
             #compute speed based on curvature
-            if curr_wp.curvature > 1e-5:
-                curr_wp.speed = max(self.minSpeed , min( math.sqrt(self.maxAccele/curr_wp.curvature), self.maxSpeed))
+            if smth_curv > 1e-5:
+                curr_wp.speed = max(self.minSpeed,
+                                    min(math.sqrt(self.maxAccele/smth_curv),self.maxSpeed))
             else:
                 curr_wp.speed = self.maxSpeed
 
-        total_passes = 3 if self.is_closed == True else 1
+        total_passes = 3 if self.is_closed else 1
+
     #for p in range(total_passes):
         #forward pass to ensure acceleration limits are respected
         for p in range(total_passes):
             for i in range(N-1):
                 curr_idx = i
-                next_idx = (i+1)%N if self.is_closed is True else i+1
+                next_idx = (i+1)%N if self.is_closed else i+1
 
-                if self.is_closed is False and next_idx == N:
+                if self.is_closed and next_idx == N:
                     break
 
                 curr_wp = self.waypoints[curr_idx]
@@ -168,22 +178,12 @@ class trajectoryManager:
                 for i in range(N-1,-1,-1):
 
                     curr_idx=i
-                    next_idx=(i+1)%N
-                    curr_wp = self.waypoints[curr_idx]
-                    next_wp = self.waypoints[next_idx]
-
-                    ds = self.segment_lengths[curr_idx]
-
-                    max_decal_speed = math.sqrt((next_wp.speed**2) + 2*self.maxDecel*ds)
-                    curr_wp.speed = min(curr_wp.speed, max_decal_speed)
-            else:
-                for i in range(N-2,-1,-1):
-                    curr_idx=i
-                    next_idx=(i+1)
+                    next_idx=(i+1)%N if self.is_closed else i+1
+                    if not self.is_closed and next_idx ==N:
+                        continue
 
                     curr_wp = self.waypoints[curr_idx]
                     next_wp = self.waypoints[next_idx]
-
                     ds = self.segment_lengths[curr_idx]
 
                     max_decal_speed = math.sqrt((next_wp.speed**2) + 2*self.maxDecel*ds)
@@ -196,15 +196,20 @@ class trajectoryManager:
         #    min(w.curvature for w in self.waypoints),
         #    max(w.curvature for w in self.waypoints))
 
-        #
+        maxPlanSpeed = max(wp.speed for wp in self.waypoints[:])
+
         for i in range(N):
+                
             curr_wp = self.waypoints[i]
-            curr_wp.speed = max(0.05,min((curr_wp.speed/self.maxSpeed), 1.0))
+            normalizedRatio = curr_wp.speed/maxPlanSpeed
+            curr_wp.speed = max(min(normalizedRatio,1.0),0.05)
+            print(curr_wp.speed)
+            #just same as np.clip((curr_wp.speed/max_temp_val)*weightsValRatio,0.05,1.0)
+        return self.waypoints
 
-
-    def _close_node(self):
-        #get tf/odom and find close index from maplist
-        pass
+    #def _close_node(self):
+    #    #get tf/odom and find close index from maplist
+    #    pass
 
 
     
