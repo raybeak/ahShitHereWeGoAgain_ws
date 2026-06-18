@@ -14,7 +14,7 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='raybeak',
-    maintainer_email='ray.beak@outlook.com',
+    maintainer_email='ray.beak@proton.me',
     description='TODO: Package description',
     license='TODO: License declaration',
     extras_require={
@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'coreNode = py_pkg.coreNode:main'
         ],
     },
 )

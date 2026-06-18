@@ -26,24 +26,119 @@ from ackermanCalculator:
     - gets the actual ackerman steering to control the vehicle to reach the target waypoint and curvature
 """
 #!/usr/bin/env python3
-import trajectoryManager
-testLocationStr="./wp_optimal_OX.csv"
-#"./wp_optimal_XO.csv"
-#"./wp_optimal_XX.csv"
-#'./wp_optimal_OO.csv'
-#"./wp_amcl-2026-06-11-09-12-07-clean_copy.csv"
-class Dummy:
-    pass
+import math
+import trajectoryManager as TJM
+import rclpy
 
-vp = Dummy()
+from rclpy.node import Node
+
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import LaserScan
+from ackermann_msgs.msg import AckermannDriveStamped
+
+testLocationStr = ""
+#csv location go here
+
+class vehicleParams:
+    pass
+vp = vehicleParams()
 vp.max_accel = 2.0
 vp.max_decel = -2.0
-
 vp.max_speed = 5.0
-
 vp.min_speed = 0.5
 
-tm = trajectoryManager.trajectoryManager(vp)
-tm.load_csv(testLocationStr)
-tm._compute_geometry()
-print(tm._compute_speed_profile())
+class coreNode(Node):
+    tm = TJM.trajectoryManager(vp)
+    tm.load_csv(testLocationStr)
+    tm._compute_geometry()
+    map=list(tm._compute_speed_profile())
+
+    def __init__(self):
+        super().__init__("coreNode")
+
+        self.odomMsg = None
+        self.scanMsg = None
+
+        self.odomSub = self.create_subscription(
+            Odometry,
+            "/odom",
+            self.odomCallback,
+            10,
+        )
+
+        self.scanSub = self.create_subscription(
+            LaserScan,
+            "/scan",
+            self.scanCallback,
+            10,
+        )
+
+        self.drivePub = self.create_publisher(
+            AckermannDriveStamped,
+            "/drive",
+            10,
+        )
+
+        self.timer = self.create_timer(
+            0.1,  # 40 Hz
+            self.controlLoop,
+        )
+
+        self.get_logger().info("DriveNode started")
+
+    def odomCallback(self, msg: Odometry) -> None:
+        self.odomMsg = msg
+
+    def scanCallback(self, msg: LaserScan) -> None:
+        self.scanMsg = msg
+
+    def controlLoop(self) -> None:
+        if self.odomMsg is None:
+            return
+
+        if self.scanMsg is None:
+            return
+
+        currentSpeed = math.sqrt(
+            self.odomMsg.twist.twist.linear.x ** 2
+            + self.odomMsg.twist.twist.linear.y ** 2
+        )
+
+        frontIndex = len(self.scanMsg.ranges) // 2
+        frontDistance = self.scanMsg.ranges[frontIndex]
+
+        driveMsg = AckermannDriveStamped()
+        driveMsg.header.stamp = self.get_clock().now().to_msg()
+        driveMsg.header.frame_id = "base_link"
+
+        # Example logic
+        if frontDistance < 1.0:
+            driveMsg.drive.speed = 0.0
+            driveMsg.drive.steering_angle = 0.0
+        else:
+            driveMsg.drive.speed = 1.0
+            driveMsg.drive.steering_angle = 0.0
+
+        self.drivePub.publish(driveMsg)
+
+        self.get_logger().debug(
+            f"speed={currentSpeed:.2f}, frontDist={frontDistance:.2f}"
+        )
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    node = coreNode()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
