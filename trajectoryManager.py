@@ -203,8 +203,6 @@ class trajectoryManager:
             curr_wp = self.waypoints[i]
             normalizedRatio = curr_wp.speed/maxPlanSpeed
             curr_wp.speed = max(min(normalizedRatio,1.0),0.05)
-            print(curr_wp.speed)
-            #just same as np.clip((curr_wp.speed/max_temp_val)*weightsValRatio,0.05,1.0)
         return self.waypoints
 
     #def _close_node(self):
